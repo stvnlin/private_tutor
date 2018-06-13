@@ -1,9 +1,8 @@
-
 #include <iostream>
 
-int main() {
-    std::cout << "Hello, World!" << std::endl
-              << "Press enter to exit...";
+int main(){    
+
+    std::cout << "hello, world!" << std::endl;
 
     std::cin.get();
 
