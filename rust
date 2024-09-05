@@ -1,0 +1,225 @@
+use serde::{Deserialize, Serialize};
+use yaml_rust::{Yaml, YamlLoader};
+
+#[derive(Debug, Serialize, Deserialize)]
+struct MarkdownMetadata {
+    author: String,
+    title: String,
+    starts: String,
+    tags: Vec<String>,
+}
+
+fn extract_metadata_from_yaml(yaml: &Yaml) -> Option<(String, String, String, Vec<String>)> {
+    let metadata: MarkdownMetadata = match yaml.as_hash() {
+        Some(hash) => match serde_yaml::from_value(hash.clone()) {
+            Ok(metadata) => metadata,
+            Err(_) => return None,
+        },
+        None => return None,
+    };
+
+    Some((
+        metadata.author,
+        metadata.title,
+        metadata.starts,
+        metadata.tags,
+    ))
+}
+
+fn main() {
+    let yaml_str = r#"
+author: John Doe
+title: My Article
+starts: 2023-01-01
+tags:
+  - rust
+  - programming
+"#;
+
+    let yaml = YamlLoader::load_from_str(yaml_str).unwrap();
+
+    if let Some(yaml) = yaml.first() {
+        if let Some(metadata) = extract_metadata_from_yaml(yaml) {
+            println!("Author: {}", metadata.0);
+            println!("Title: {}", metadata.1);
+            println!("Starts: {}", metadata.2);
+            println!("Tags: {:?}", metadata.3);
+        } else {
+            println!("Metadata not found.");
+        }
+    } else {
+        println!("Invalid YAML.");
+    }
+}
+
+
+
+
+
+
+
+use pulldown_cmark::{html::html, Parser};
+
+fn markdown_to_html(markdown_text: &str) -> String {
+    let parser = Parser::new(&markdown_text);
+    let mut html_output = String::new();
+    html::push_html(&mut html_output, parser);
+    html_output
+}
+
+fn main() {
+    let markdown_text = r#"
+# This is a heading
+
+This is some text.
+
+**Bold text**
+
+*Italic text*
+
+[Link to Google](https://www.google.com)
+"#;
+
+    let html = markdown_to_html(markdown_text);
+    println!("{}", html);
+}
+
+
+
+
+
+
+use epub::doc::Document;
+use epub::toc::Toc;
+use epub::utils::ZipArchive;
+use std::fs::File;
+use std::io::Write;
+
+fn html_to_epub(html_text: &[String], title: &str, output_file: &str) -> Result<(), Box<dyn std::error::Error>> {
+    // Create a new EPUB document
+    let mut document = Document::new(title);
+
+    // Add chapters from HTML text
+    for (i, html) in html_text.iter().enumerate() {
+        let chapter_title = format!("Chapter {}", i + 1);
+        document.add_chapter(chapter_title, html);
+    }
+
+    // Create a table of contents
+    let toc = Toc::new(title, document.chapters());
+
+    // Add the table of contents to the document
+    document.set_toc(toc);
+
+    // Create a new EPUB file
+    let mut zip = ZipArchive::new(File::create(output_file)?)?;
+
+    // Write the EPUB document to the ZIP file
+    document.write(&mut zip)?;
+
+    Ok(())
+}
+
+fn main() {
+    let html_text = vec![
+        r#"<!DOCTYPE html>
+<html>
+<head>
+<title>Chapter 1</title>
+</head>
+<body>
+This is the first chapter.
+</body>
+</html>"#,
+        r#"<!DOCTYPE html>
+<html>
+<head>
+<title>Chapter 2</title>
+</head>
+<body>
+This is the second chapter.
+</body>
+</html>"#,
+    ];
+
+    let title = "My EPUB Book";
+    let output_file = "my_book.epub";
+
+    html_to_epub(&html_text, title, output_file).unwrap();
+}
+
+
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use serde::{Deserialize, Serialize};
+use yaml_rust::{Yaml, YamlLoader};
+
+#[derive(Debug, Serialize, Deserialize)]
+struct MarkdownFile {
+    yaml: Option<Yaml>,
+    content: String,
+}
+
+fn open_markdown_file(file_path: &str) -> Result<MarkdownFile, Box<dyn std::error::Error>> {
+    let file = File::open(file_path)?;
+    let reader = BufReader::new(file);
+
+    let mut lines = reader.lines();
+
+    let mut yaml_content = String::new();
+    let mut content = String::new();
+
+    let mut has_yaml = false;
+
+    for line in lines {
+        let line = line?;
+
+        if !has_yaml && line.starts_with("---") {
+            has_yaml = true;
+            continue;
+        }
+
+        if has_yaml && line.starts_with("---") {
+            break;
+        }
+
+        if has_yaml {
+            yaml_content.push_str(&line);
+            yaml_content.push('\n');
+        } else {
+            content.push_str(&line);
+            content.push('\n');
+        }
+    }
+
+    let yaml = if has_yaml {
+        Some(YamlLoader::load_from_str(&yaml_content)?)
+    } else {
+        None
+    };
+
+    Ok(MarkdownFile { yaml, content })
+}
+
+fn main() {
+    let file_path = r"C:\Users\lins0018\Documents\Rust\做房产中介的妈妈.md";
+
+    let result = open_markdown_file(file_path);
+
+    match result {
+        Ok(markdown_file) => {
+            if let Some(yaml) = markdown_file.yaml {
+                println!("YAML content:");
+                println!("{:?}", yaml);
+            } else {
+                println!("No YAML found.");
+            }
+
+            println!("Markdown content:");
+            println!("{}", markdown_file.content);
+        }
+        Err(err) => {
+            eprintln!("Error: {}", err);
+        }
+    }
+}
